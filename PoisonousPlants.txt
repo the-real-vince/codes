@@ -1,0 +1,34 @@
+import java.io.*;
+import java.util.*;
+
+public class Solution {
+    public static void main(String[] args) throws Exception {
+        // Use BufferedReader for efficient input.
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        int n = Integer.parseInt(br.readLine().trim());
+        String[] tokens = br.readLine().split(" ");
+        int[] plants = new int[n];
+        for (int i = 0; i < n; i++) {
+            plants[i] = Integer.parseInt(tokens[i]);
+        }
+        
+        // The stack stores pairs: [pesticide level, days to die]
+        Deque<int[]> stack = new ArrayDeque<>();
+        int maxDays = 0;
+        
+        for (int i = 0; i < n; i++) {
+            int days = 0;
+            // Pop all plants with pesticide >= current plant's pesticide
+            while (!stack.isEmpty() && plants[i] <= stack.peek()[0]) {
+                days = Math.max(days, stack.peek()[1]);
+                stack.pop();
+            }
+            // If the stack is empty, current plant will never die
+            days = stack.isEmpty() ? 0 : days + 1;
+            maxDays = Math.max(maxDays, days);
+            stack.push(new int[]{plants[i], days});
+        }
+        
+        System.out.println(maxDays);
+    }
+}

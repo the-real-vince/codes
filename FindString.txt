@@ -1,0 +1,140 @@
+import java.io.*;
+import java.util.*;
+
+public class Solution {
+    
+    static class State {
+        int len, link;
+        // TreeMap used so transitions are iterated in lexicographical order.
+        TreeMap<Character, Integer> next = new TreeMap<>();
+    }
+    
+    static State[] st;
+    static int size, last;
+    // dp[i] = number of distinct valid (separator-free) substrings starting from state i.
+    static long[] dp;
+    
+    // Special separator character (assumed not in input strings)
+    static final char SEP = '#';
+    
+    // Suffix automaton extend function.
+    static void saExtend(char c) {
+        int cur = size++;
+        st[cur] = new State();
+        st[cur].len = st[last].len + 1;
+        int p = last;
+        for(; p != -1 && !st[p].next.containsKey(c); p = st[p].link) {
+            st[p].next.put(c, cur);
+        }
+        if(p == -1) {
+            st[cur].link = 0;
+        } else {
+            int q = st[p].next.get(c);
+            if(st[p].len + 1 == st[q].len) {
+                st[cur].link = q;
+            } else {
+                int clone = size++;
+                st[clone] = new State();
+                st[clone].len = st[p].len + 1;
+                st[clone].next.putAll(st[q].next);
+                st[clone].link = st[q].link;
+                for(; p != -1 && st[p].next.get(c) == q; p = st[p].link) {
+                    st[p].next.put(c, clone);
+                }
+                st[q].link = st[cur].link = clone;
+            }
+        }
+        last = cur;
+    }
+    
+    // DP computation: count number of valid substrings (excluding ones that include the SEP).
+    static long dfs(int state) {
+        if(dp[state] != -1) return dp[state];
+        long res = 0;
+        // Iterate over transitions in lex order
+        for(Map.Entry<Character, Integer> e : st[state].next.entrySet()) {
+            char c = e.getKey();
+            // Skip separator transitions
+            if(c == SEP) continue;
+            int nxt = e.getValue();
+            // Each edge contributes one substring (the letter itself) plus all extensions.
+            res += 1 + dfs(nxt);
+        }
+        dp[state] = res;
+        return res;
+    }
+    
+    // kth substring search from given state, given k (1-indexed)
+    static String kthSubstring(int state, long k) {
+        // Iterate transitions in lex order (skipping SEP)
+        for(Map.Entry<Character, Integer> e : st[state].next.entrySet()) {
+            char c = e.getKey();
+            if(c == SEP) continue;
+            int nxt = e.getValue();
+            long cnt = 1 + dp[nxt];  // count of substrings beginning with this letter
+            if(k <= cnt) {
+                // If k==1, then the answer is just this character.
+                if(k == 1) {
+                    return "" + c;
+                } else {
+                    // Otherwise, subtract one for the letter itself and search in nxt.
+                    return c + kthSubstring(nxt, k - 1);
+                }
+            } else {
+                k -= cnt;
+            }
+        }
+        // Should never reach here if k is within range.
+        return "";
+    }
+    
+    public static void main(String[] args) throws Exception {
+        // Fast I/O
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        int n = Integer.parseInt(br.readLine().trim());
+        StringBuilder concat = new StringBuilder();
+        
+        // Concatenate all strings with separator; this ensures substrings spanning across strings contain SEP and are invalid.
+        for (int i = 0; i < n; i++) {
+            String s = br.readLine().trim();
+            concat.append(s).append(SEP);
+        }
+        String inputStr = concat.toString();
+        int len = inputStr.length();
+        
+        // Initialize automaton: maximum states is 2*len.
+        st = new State[2 * len];
+        for (int i = 0; i < st.length; i++) {
+            st[i] = null;
+        }
+        st[0] = new State();
+        st[0].len = 0;
+        st[0].link = -1;
+        size = 1;
+        last = 0;
+        
+        // Build the suffix automaton.
+        for (int i = 0; i < len; i++) {
+            saExtend(inputStr.charAt(i));
+        }
+        
+        // Initialize dp array.
+        dp = new long[size];
+        Arrays.fill(dp, -1);
+        dfs(0); // dp[0] now holds the total count of valid distinct substrings.
+        
+        // Process queries.
+        int q = Integer.parseInt(br.readLine().trim());
+        StringBuilder sb = new StringBuilder();
+        long total = dp[0]; // total valid substrings from initial state.
+        for (int i = 0; i < q; i++) {
+            long k = Long.parseLong(br.readLine().trim());
+            if(k > total || k <= 0) {
+                sb.append("INVALID").append("\n");
+            } else {
+                sb.append(kthSubstring(0, k)).append("\n");
+            }
+        }
+        System.out.print(sb);
+    }
+}
